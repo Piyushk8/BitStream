@@ -4,11 +4,17 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
+[tool.uv.scripts]
+dev = "uvicorn app.main:app --reload"
+prod = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+worker = "python worker.py"
+
 dependencies = [
     "fastapi>=0.124.2",
     "loguru>=0.7.3",
     "pydantic-settings>=2.12.0",
     "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.20",
     "uvicorn[standard]>=0.38.0",
     "watchfiles>=1.1.1",
 ]
