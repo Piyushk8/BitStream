@@ -1,10 +1,14 @@
 from fastapi import UploadFile, HTTPException
 from app.api.schemas.schemas import UploadResponse, VideoJobResponse
+from app.api.jobs.schemas import JobStatus
 from uuid import uuid4
 import os
 
+
 UPLOAD_DIR = "uploads"
-from app.api.services import generate_processing_job
+
+from app.queue.task import process_video_job
+from app.api.controllers.jobs import create_new_job
 
 
 async def handle_video_upload(file: UploadFile) -> UploadResponse:
@@ -21,9 +25,16 @@ async def handle_video_upload(file: UploadFile) -> UploadResponse:
         while chunk := await file.read(1024 * 1024):
             buffer.write(chunk)
 
+    # ---------- CREATE JOB ----------
+    job = create_new_job(video_id=video_id, saved_path=save_path)
+
+    # ---------- ENQUEUE WORK ----------
+    process_video_job.send(job.job_id, save_path)
+
     return UploadResponse(
         video_id=video_id,
         file_name=file.filename,
         path=save_path,
+        job_id=job.job_id,
+        status=JobStatus.QUEUED,
     )
-

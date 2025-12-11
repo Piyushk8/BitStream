@@ -4,12 +4,15 @@ from app.api.jobs.schemas import JobStatus, Job
 from app.api.jobs.store import job_store
 
 
-def create_new_job(video_id: str) -> Job:
+def create_new_job(video_id: str, saved_path: str|None= None) -> Job:
     job_id = str(uuid4())
 
-    job = Job(job_id=job_id, video_id=video_id, status=JobStatus.QUEUED)
+    job = Job(
+        job_id=job_id, video_id=video_id, status=JobStatus.QUEUED, saved_path=saved_path
+    )
 
     job_store.create_job(job)
+
     return job
 
 
