@@ -56,11 +56,13 @@ def run_ffmpeg_with_progress(input_path: str, output_path: str, resolution="720p
         if not line:
             break
 
-        if "out_time_ms" in line and duration:
-            ms = int(time_re.search(line).group(1))
+        match = time_re.search(line)
+        if match and duration:
+            ms = int(match.group(1))
             progress = min(99, (ms / (duration * 1_000_000)) * 100)
             if progress_callback:
                 progress_callback(progress)
+
 
         if "progress=end" in line:
             if progress_callback:

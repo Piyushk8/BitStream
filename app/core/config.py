@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: list[AnyHttpUrl] | list[str] = Field(
         default_factory=lambda: ["http://localhost:3000"]
     )
+    redis_port: str = "6379"
+    redis_host: str = "localhost"
     # Logging
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 

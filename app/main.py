@@ -1,9 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import HTMLResponse
 from app.core.config import settings
 from app.core.logging import logger
+from app.api.ws import job_progress_ws
 from app.api.routes.routes import router
 from contextlib import asynccontextmanager
-
+from pathlib import Path
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,7 +18,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
-    app.include_router(router=router,prefix=settings.API_V1_PREFIX)
+    app.include_router(router=router, prefix=settings.API_V1_PREFIX)
     return app
 
 
@@ -30,3 +32,12 @@ async def health():
         "environment": settings.ENVIRONMENT,
         "name": settings.APP_NAME,
     }
+
+
+@app.websocket("/ws/jobs/{job_id}")
+async def websocket_endpoint(ws: WebSocket, job_id: str):
+    await job_progress_ws(ws, job_id)
+
+@app.get("/app")
+def index():
+    return HTMLResponse(Path("./FE/test.html").read_text())

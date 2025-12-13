@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Video Progress Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    progress { width: 100%; height: 20px; }
+    #log { margin-top: 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<h2>Video Upload Progress Test</h2>
+
+<input type="file" id="fileInput" />
+<button onclick="upload()">Upload</button>
+
+<br/><br/>
+<progress id="progressBar" value="0" max="100"></progress>
+<span id="progressText">0%</span>
+
+<div id="log"></div>
+
+<script>
+  async function upload() {
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    if (!file) {
+      alert("Select a file first");
+      return;
+    }
+
+    log("Uploading video...");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("http://localhost:8000/api/v1/videos/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+    const jobId = data.job_id;
+
+    log("Job ID: " + jobId);
+    openWebSocket(jobId);
+  }
+
+  function openWebSocket(jobId) {
+    const ws = new WebSocket(`ws://localhost:8000/ws/jobs/${jobId}`);
+
+    ws.onopen = () => log("WebSocket connected");
+    ws.onclose = () => log("WebSocket closed");
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "progress") {
+        updateProgress(msg.value);
+      }
+    };
+  }
+
+  function updateProgress(value) {
+    document.getElementById("progressBar").value = value;
+    document.getElementById("progressText").innerText = value + "%";
+  }
+
+  function log(text) {
+    document.getElementById("log").innerHTML += `<div>${text}</div>`;
+  }
+</script>
+
+</body>
+</html>
