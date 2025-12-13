@@ -1,61 +1,71 @@
-# app/workers/tasks.py
-import os
 import subprocess
-from typing import Dict, Any
-from pathlib import Path
+import re
 
-def extract_metadata_and_thumbnail(saved_path: str, output_dir: str) -> Dict[str, Any]:
+
+def run_ffmpeg_with_progress(input_path: str, output_path: str, resolution="720p", progress_callback=None):
     """
-    CPU-bound: run ffprobe and ffmpeg to extract metadata and one thumbnail.
-    This function is intended to be executed in a ProcessPoolExecutor.
-    Returns a dict with metadata and thumbnail path.
+    Transcode video to a resolution like 720p with progress.
     """
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    # metadata via ffprobe (must be installed in system)
-    # If ffprobe not present in your environment, replace with a simulated metadata dict.
+    # Get duration
     try:
-        ffprobe_cmd = [
-            "ffprobe",
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration:stream=width,height,codec_name",
-            "-of",
-            "json",
-            saved_path,
-        ]
-        completed = subprocess.run(ffprobe_cmd, capture_output=True, text=True, check=True)
-        metadata_json = completed.stdout
-    except FileNotFoundError:
-        # ffprobe not installed locally — return simulated metadata
-        metadata_json = '{"format": {"duration": "0.0"}, "streams": []}'
-    except subprocess.CalledProcessError:
-        # ffprobe failed on file — return minimal metadata
-        metadata_json = '{"format": {"duration": "0.0"}, "streams": []}'
+        probe = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                input_path
+            ],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        duration = float(probe.stdout.strip())
+    except:
+        duration = None
 
-    # create thumbnail (grab frame at 1s)
-    thumb_path = os.path.join(output_dir, f"{Path(saved_path).stem}_thumb.jpg")
-    try:
-        ffmpeg_cmd = [
-            "ffmpeg",
-            "-y",
-            "-i",
-            saved_path,
-            "-ss",
-            "00:00:01.000",
-            "-vframes",
-            "1",
-            thumb_path,
-        ]
-        subprocess.run(ffmpeg_cmd, capture_output=True, check=True)
-        thumbnail_ok = True
-    except FileNotFoundError:
-        thumbnail_ok = False
-    except subprocess.CalledProcessError:
-        thumbnail_ok = False
+    # Extract resolution number (e.g. 720 from "720p")
+    h = resolution.lower().replace("p", "")
 
-    return {
-        "metadata": metadata_json,
-        "thumbnail_path": thumb_path if thumbnail_ok else None,
-    }
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i", input_path,
+        "-vf", f"scale=-2:{h}",          # FIXED
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        output_path,                    # FILE, not directory
+        "-progress", "pipe:1",
+        "-nostats",
+    ]
+
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+
+    time_re = re.compile(r"out_time_ms=(\d+)")
+
+    while True:
+        line = process.stdout.readline()
+        if not line:
+            break
+
+        if "out_time_ms" in line and duration:
+            ms = int(time_re.search(line).group(1))
+            progress = min(99, (ms / (duration * 1_000_000)) * 100)
+            if progress_callback:
+                progress_callback(progress)
+
+        if "progress=end" in line:
+            if progress_callback:
+                progress_callback(100)
+            break
+
+    process.wait()
+    return output_path

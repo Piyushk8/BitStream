@@ -6,3 +6,8 @@ prod:
 
 worker:
 	uv run python worker.py
+
+
+docker run -p 6379:6379 redis    
+
+uv run dramatiq app.queue.task  

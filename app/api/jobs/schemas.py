@@ -9,7 +9,7 @@ class JobStatus(str, Enum):
     QUEUED = "queued"
     PROCESSING = "processing"
     COMPLETED = "completed"
-    Failed = "failed"
+    FAILED = "failed"
 
 
 class Job(BaseModel):
