@@ -6,6 +6,9 @@ from app.api.ws import job_progress_ws
 from app.api.routes.routes import router
 from contextlib import asynccontextmanager
 from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,3 +44,4 @@ async def websocket_endpoint(ws: WebSocket, job_id: str):
 @app.get("/app")
 def index():
     return HTMLResponse(Path("./FE/test.html").read_text())
+app.mount("/videos", StaticFiles(directory="outputs"), name="videos")

@@ -8,12 +8,19 @@ class JobStore:
         self.jobs: Dict[str, Job] = {}
 
     def create_job(self, job: Job):
-        logger.info(f"Creating job {job.job_id}")
         self.jobs[job.job_id] = job
         return job
 
-    def get_job(self, job_id: str) -> Optional[Job]:
-        return self.jobs.get(job_id)
+    def set_duration(self, job_id: str, duration: float):
+        job = self.jobs.get(job_id)
+        if not job:
+            return None
+        job.duration_seconds = duration
+        job.updated_at = datetime.utcnow()
+        return job
+    
+    def get_job(self,job_id:str):
+        return self.jobs[job_id]
 
     def update_job_status(self, job_id: str, status: JobStatus, progress: float = None, error: str = None):
         job = self.jobs.get(job_id)
@@ -27,8 +34,10 @@ class JobStore:
             job.error = error
 
         job.updated_at = datetime.utcnow()
-        self.jobs[job_id] = job
         return job
+
+
+
 
 # Global shared store for now
 job_store = JobStore()

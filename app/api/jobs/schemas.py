@@ -18,6 +18,7 @@ class Job(BaseModel):
     status: JobStatus = JobStatus.QUEUED
     progress: float = 0.0
     saved_path: str
+    duration_seconds: Optional[float] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
