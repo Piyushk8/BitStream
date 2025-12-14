@@ -6,6 +6,8 @@ from app.api.jobs.schemas import JobStatus
 from app.core.logging import logger
 from app.workers.progress import publish_event
 from app.workers.hls.hls import generate_hls_from_source
+from app.queue.transcription_task import transcribe_video_job
+from app.workers.audio import extract_audio
 import subprocess
 
 def get_video_duration(input_path: str) -> float:
@@ -24,7 +26,7 @@ def get_video_duration(input_path: str) -> float:
     return float(result.stdout.strip())
 
 
-@dramatiq.actor(max_retries=3, min_backoff=2000)
+@dramatiq.actor(max_retries=0, min_backoff=2000)
 def process_video_job(job_id: str, saved_path: str):
 
     logger.info(f"worker picked the job {job_id}")
@@ -44,15 +46,21 @@ def process_video_job(job_id: str, saved_path: str):
 
     try:
         # run_ffmpeg_with_progress(saved_path, output_file, "720p", update_progress)
+        audio_path = f"outputs/{job_id}/audio.wav"
+        extract_audio(saved_path, audio_path)
+
+
         generate_hls_from_source(
             input_path=saved_path,
             hls_dir=hls_dir,
             progress_callback=update_progress,
         )
-        os.remove(saved_path)
 
-        job_store.update_job_status(job_id, JobStatus.COMPLETED, progress=100.0)
-        publish_event(job_id, "completed", 100)
+        job_store.update_job_status(job_id, JobStatus.TRANSCODED, progress=100.0)
+        publish_event(job_id, "transcoded", 100)
+        
+        transcribe_video_job.send(job_id, audio_path)
+        os.remove(saved_path)
         logger.info(f"Job {job_id} COMPLETED")
 
     except Exception as e:
